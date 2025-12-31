@@ -1,47 +1,50 @@
 package ec.edu.ups.icc.fundamentos01.users.controllers;
 
-import java.util.List;
-import org.springframework.web.bind.annotation.*;
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.services.UserService;
+import jakarta.validation.Valid; // Importante para la validación
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 public class UserController {
 
-    private final UserService service; 
-    
-    public UserController(UserService service) {
-        this.service = service;
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
 
     @GetMapping
     public List<UserResponseDto> findAll() {
-        return service.findAll();
+        return userService.findAll();
     }
 
     @GetMapping("/{id}")
-    public Object findOne(@PathVariable int id) {
-        return service.findOne(id);
+    public UserResponseDto findOne(@PathVariable int id) {
+        return userService.findOne(id);
     }
 
+    // MÉTODO CREATE (Solo una vez, con @Valid)
     @PostMapping
-    public UserResponseDto create(@RequestBody CreateUserDTO dto) {
-        return service.create(dto);
+    public UserResponseDto create(@Valid @RequestBody CreateUserDto dto) {
+        return userService.create(dto);
     }
 
+    // MÉTODO UPDATE (Solo una vez, con @Valid)
     @PutMapping("/{id}")
-    public Object update(@PathVariable int id, @RequestBody UpdateUserDto dto) {
-        return service.update(id, dto);
+    public UserResponseDto update(@PathVariable int id, @Valid @RequestBody UpdateUserDto dto) {
+        return userService.update(id, dto);
     }
 
     @PatchMapping("/{id}")
-    public Object partialUpdate(@PathVariable int id, @RequestBody PartialUpdateUserDto dto) {
-        return service.partialUpdate(id, dto);
+    public UserResponseDto partialUpdate(@PathVariable int id, @RequestBody PartialUpdateUserDto dto) {
+        return userService.partialUpdate(id, dto);
     }
 
     @DeleteMapping("/{id}")
-    public Object delete(@PathVariable int id) {
-        return service.delete(id);
+    public void delete(@PathVariable int id) {
+        userService.delete(id);
     }
 }

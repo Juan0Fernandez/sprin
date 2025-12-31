@@ -1,5 +1,21 @@
 #spring.application.name=fundamentos01;
 
 spring:
-    application:
-        name: fundamentos01
+  application:
+    name: fundamentos01
+  datasource:
+    url: jdbc:postgresql://localhost:5432/devdb  # Usamos la base 'devdb' normal
+    username: ups
+    password: ups123
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+server:
+  port: 8080

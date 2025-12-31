@@ -1,25 +1,22 @@
-package ec.edu.ups.icc.fundamentos01.users.dtos;
+package ec.edu.ups.icc.fundamentos01.users.entities;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import ec.edu.ups.icc.fundamentos01.core.entities.BaseModel;
+import jakarta.persistence.*;
 
-public class UpdateUserDto {
+@Entity
+@Table(name = "users")
+public class UserEntity extends BaseModel {
 
-    @NotBlank
-    @Size(min = 3, max = 150)
+    @Column(nullable = false, length = 150)
     private String name;
 
-    @NotBlank
-    @Email
-    @Size(max = 150)
+    @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @NotBlank
-    @Size(min = 8)
+    @Column(nullable = false)
     private String password;
 
-    public UpdateUserDto() {}
+    public UserEntity() {} // Constructor vacío obligatorio
 
     // Getters y Setters
     public String getName() { return name; }

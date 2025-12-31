@@ -1,60 +1,91 @@
 package ec.edu.ups.icc.fundamentos01.users.services;
 
-import org.springframework.stereotype.Service;
-import java.util.ArrayList;
-import java.util.List;
-import ec.edu.ups.icc.fundamentos01.users.entities.User;
+import ec.edu.ups.icc.fundamentos01.exception.domain.ConflictException;
+import ec.edu.ups.icc.fundamentos01.exception.domain.NotFoundException;
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
-import ec.edu.ups.icc.fundamentos01.users.mappers.UserMapper;
+import ec.edu.ups.icc.fundamentos01.users.models.User;
+import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
 
-    private List<User> users = new ArrayList<>(); 
-    private int currentId = 1;
+    private final UserRepository userRepo;
+
+    public UserServiceImpl(UserRepository userRepo) {
+        this.userRepo = userRepo;
+    }
 
     @Override
     public List<UserResponseDto> findAll() {
-        return users.stream().map(UserMapper::toResponse).toList();
+        return userRepo.findAll()
+                .stream()
+                .map(User::fromEntity)
+                .map(User::toResponseDto)
+                .toList();
     }
 
     @Override
-public Object findOne(int id) {
-    User user = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
-    if (user != null) return UserMapper.toResponse(user);
-    return new Object() { public String error = "User not found"; };
-}
-    @Override
-    public UserResponseDto create(CreateUserDTO dto) {
-        User user = UserMapper.toEntity(currentId++, dto.name, dto.email);
-        users.add(user);
-        return UserMapper.toResponse(user);
+    public UserResponseDto findOne(int id) {
+        return userRepo.findById((long) id)
+                .map(User::fromEntity)
+                .map(User::toResponseDto)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
     }
 
     @Override
-    public Object update(int id, UpdateUserDto dto) {
-        User user = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
-        if (user == null) return new Object() { public String error = "User not found"; };
+    public UserResponseDto create(CreateUserDto dto) {
+        // 1. VALIDACIÓN PREVIA : Verificar duplicados
+        if (userRepo.findByEmail(dto.getEmail()).isPresent()) {
+            throw new ConflictException("El email " + dto.getEmail() + " ya está registrado");
+        }
 
-        user.setName(dto.name);
-        user.setEmail(dto.email);
-        return UserMapper.toResponse(user);
+        // 2. CREACIÓN (Estilo Funcional): Guardar y mapear
+        return Optional.of(dto)
+                .map(User::fromDto)
+                .map(User::toEntity)
+                .map(userRepo::save)
+                .map(User::fromEntity)
+                .map(User::toResponseDto)
+                .orElseThrow(() -> new RuntimeException("Error interno al crear el usuario"));
     }
 
     @Override
-    public Object partialUpdate(int id, PartialUpdateUserDto dto) {
-        User user = users.stream().filter(u -> u.getId() == id).findFirst().orElse(null);
-        if (user == null) return new Object() { public String error = "User not found"; };
-
-        if (dto.name != null) user.setName(dto.name);
-        if (dto.email != null) user.setEmail(dto.email);
-        return UserMapper.toResponse(user);
+    public UserResponseDto update(int id, UpdateUserDto dto) {
+        return userRepo.findById((long) id)
+                .map(entity -> {
+                    entity.setName(dto.getName());
+                    entity.setEmail(dto.getEmail());
+                    entity.setPassword(dto.getPassword());
+                    return userRepo.save(entity);
+                })
+                .map(User::fromEntity)
+                .map(User::toResponseDto)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
     }
 
     @Override
-    public Object delete(int id) {
-        boolean removed = users.removeIf(u -> u.getId() == id);
-        if (!removed) return new Object() { public String error = "User not found"; };
-        return new Object() { public String message = "Deleted successfully"; };
+    public UserResponseDto partialUpdate(int id, PartialUpdateUserDto dto) {
+        return userRepo.findById((long) id)
+                .map(entity -> {
+                    if (dto.getName() != null) entity.setName(dto.getName());
+                    if (dto.getEmail() != null) entity.setEmail(dto.getEmail());
+                    if (dto.getPassword() != null) entity.setPassword(dto.getPassword());
+                    return userRepo.save(entity);
+                })
+                .map(User::fromEntity)
+                .map(User::toResponseDto)
+                .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
+    }
+
+    @Override
+    public void delete(int id) {
+        if (!userRepo.existsById((long) id)) {
+            throw new NotFoundException("No se puede eliminar. Usuario no encontrado con ID: " + id);
+        }
+        userRepo.deleteById((long) id);
     }
 }
