@@ -15,14 +15,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Maneja tus errores personalizados (NotFound, Conflict, etc.)
+    // 1. Manejo de tus excepciones personalizadas (NotFound, Conflict)
+    // Se asume que tu ApplicationException tiene un método getStatus() que devuelve HttpStatus
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ErrorResponse> handleApplicationException(
             ApplicationException ex,
             HttpServletRequest request
     ) {
+        // Usamos tu constructor simple (HttpStatus, message, path)
         ErrorResponse response = new ErrorResponse(
-                ex.getStatus(),
+                ex.getStatus(), 
                 ex.getMessage(),
                 request.getRequestURI()
         );
@@ -30,7 +32,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(response);
     }
 
-    // 2. Maneja los errores de validación (@Valid, @NotNull, etc.)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(
             MethodArgumentNotValidException ex,
@@ -52,7 +53,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
 
-    // 3. Maneja cualquier otro error inesperado (NullPointer, etc.)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpectedException(
             Exception ex,

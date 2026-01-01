@@ -21,8 +21,9 @@ public class ProductController {
         return service.findAll();
     }
 
+    // 👇 AQUÍ AGREGAMOS ("id")
     @GetMapping("/{id}")
-    public ProductResponseDto findOne(@PathVariable int id) {
+    public ProductResponseDto findOne(@PathVariable("id") int id) {
         return service.findOne(id);
     }
 
@@ -31,18 +32,21 @@ public class ProductController {
         return service.create(dto);
     }
 
+    // 👇 AQUÍ TAMBIÉN
     @PutMapping("/{id}")
-    public ProductResponseDto update(@PathVariable int id, @Valid @RequestBody UpdateProductDto dto) {
+    public ProductResponseDto update(@PathVariable("id") int id, @Valid @RequestBody UpdateProductDto dto) {
         return service.update(id, dto);
     }
 
+    // 👇 Y AQUÍ
     @PatchMapping("/{id}")
-    public ProductResponseDto partialUpdate(@PathVariable int id, @RequestBody PartialUpdateProductDto dto) {
+    public ProductResponseDto partialUpdate(@PathVariable("id") int id, @RequestBody PartialUpdateProductDto dto) {
         return service.partialUpdate(id, dto);
     }
 
+    // 👇 Y FINALMENTE AQUÍ
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable int id) {
+    public void delete(@PathVariable("id") int id) {
         service.delete(id);
     }
 }

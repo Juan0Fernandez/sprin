@@ -2,7 +2,7 @@ package ec.edu.ups.icc.fundamentos01.users.controllers;
 
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.services.UserService;
-import jakarta.validation.Valid; // Importante para la validación
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -26,13 +26,11 @@ public class UserController {
         return userService.findOne(id);
     }
 
-    // MÉTODO CREATE (Solo una vez, con @Valid)
     @PostMapping
     public UserResponseDto create(@Valid @RequestBody CreateUserDto dto) {
         return userService.create(dto);
     }
 
-    // MÉTODO UPDATE (Solo una vez, con @Valid)
     @PutMapping("/{id}")
     public UserResponseDto update(@PathVariable int id, @Valid @RequestBody UpdateUserDto dto) {
         return userService.update(id, dto);
