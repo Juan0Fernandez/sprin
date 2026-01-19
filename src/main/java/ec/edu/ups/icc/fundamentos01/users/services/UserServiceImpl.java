@@ -2,24 +2,34 @@ package ec.edu.ups.icc.fundamentos01.users.services;
 
 import ec.edu.ups.icc.fundamentos01.exception.domain.ConflictException;
 import ec.edu.ups.icc.fundamentos01.exception.domain.NotFoundException;
+import ec.edu.ups.icc.fundamentos01.products.dtos.ProductResponseDto;
+import ec.edu.ups.icc.fundamentos01.products.mappers.ProductMapper;     // <--- Necesario
+import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository; // <--- Necesario
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.models.User;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // Importante para Lazy Loading si fuera necesario
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepo;
+    private final ProductRepository productRepo;
+    private final ProductMapper productMapper;   
 
-    public UserServiceImpl(UserRepository userRepo) {
+    public UserServiceImpl(UserRepository userRepo, ProductRepository productRepo, ProductMapper productMapper) {
         this.userRepo = userRepo;
+        this.productRepo = productRepo;
+        this.productMapper = productMapper;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
         return userRepo.findAll()
                 .stream()
@@ -29,6 +39,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponseDto findOne(int id) {
         return userRepo.findById((long) id)
                 .map(User::fromEntity)
@@ -37,13 +48,11 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto create(CreateUserDto dto) {
-        // 1. VALIDACIÓN PREVIA : Verificar duplicados
         if (userRepo.findByEmail(dto.getEmail()).isPresent()) {
             throw new ConflictException("El email " + dto.getEmail() + " ya está registrado");
         }
-
-        // 2. CREACIÓN (Estilo Funcional): Guardar y mapear
         return Optional.of(dto)
                 .map(User::fromDto)
                 .map(User::toEntity)
@@ -54,6 +63,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto update(int id, UpdateUserDto dto) {
         return userRepo.findById((long) id)
                 .map(entity -> {
@@ -68,6 +78,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponseDto partialUpdate(int id, PartialUpdateUserDto dto) {
         return userRepo.findById((long) id)
                 .map(entity -> {
@@ -82,10 +93,24 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void delete(int id) {
         if (!userRepo.existsById((long) id)) {
             throw new NotFoundException("No se puede eliminar. Usuario no encontrado con ID: " + id);
         }
         userRepo.deleteById((long) id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getProductsByUserId(Long userId) {
+        if (!userRepo.existsById(userId)) {
+             throw new NotFoundException("Usuario no encontrado con ID: " + userId);
+        }
+
+        return productRepo.findByOwnerId(userId)
+                .stream()
+                .map(productMapper::toResponseDto)
+                .collect(Collectors.toList());
     }
 }

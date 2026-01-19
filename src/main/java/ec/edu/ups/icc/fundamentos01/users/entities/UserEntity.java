@@ -1,7 +1,9 @@
 package ec.edu.ups.icc.fundamentos01.users.entities;
 
 import ec.edu.ups.icc.fundamentos01.core.entities.BaseModel;
+import ec.edu.ups.icc.fundamentos01.products.entities.ProductEntity; // <--- Importar Producto
 import jakarta.persistence.*;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -16,7 +18,12 @@ public class UserEntity extends BaseModel {
     @Column(nullable = false)
     private String password;
 
-    public UserEntity() {} // Constructor vacío obligatorio
+    // --- NUEVA RELACIÓN (Uno a Muchos) ---
+    // mappedBy = "owner" debe coincidir con el nombre del atributo en ProductEntity
+    @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
+    private List<ProductEntity> products;
+
+    public UserEntity() {} 
 
     // Getters y Setters
     public String getName() { return name; }
@@ -27,4 +34,7 @@ public class UserEntity extends BaseModel {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public List<ProductEntity> getProducts() { return products; }
+    public void setProducts(List<ProductEntity> products) { this.products = products; }
 }

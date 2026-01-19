@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
     // Se asume que tu ApplicationException tiene un método getStatus() que devuelve HttpStatus
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ErrorResponse> handleApplicationException(
-            ApplicationException ex,
+            ApplicationException ex,     
             HttpServletRequest request
     ) {
         // Usamos tu constructor simple (HttpStatus, message, path)
