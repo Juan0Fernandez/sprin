@@ -11,10 +11,14 @@ import ec.edu.ups.icc.fundamentos01.products.models.Product;
 import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository;
 import ec.edu.ups.icc.fundamentos01.users.entities.UserEntity;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection; 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +39,7 @@ public class ProductServiceImpl implements ProductService {
         this.mapper = mapper;
     }
 
+    // --- MÉTODOS CRUD (create, update, delete...) IGUAL QUE ANTES ---
     @Override
     @Transactional
     public ProductResponseDto create(CreateProductDto dto) {
@@ -43,13 +48,17 @@ public class ProductServiceImpl implements ProductService {
         }
         UserEntity owner = userRepo.findById(dto.getUserId())
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
-
         Set<CategoryEntity> categories = validateAndGetCategories(dto.getCategoryIds());
-
         Product product = Product.fromDto(dto);
         ProductEntity entity = product.toEntity(owner, categories);
-        
         return mapper.toResponseDto(productRepo.save(entity));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProductResponseDto findOne(int id) {
+        return productRepo.findById((long) id).map(mapper::toResponseDto)
+                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
     }
 
     @Override
@@ -57,21 +66,17 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponseDto update(int id, UpdateProductDto dto) {
         ProductEntity existing = productRepo.findById((long) id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
-        
         Product product = Product.fromEntity(existing);
         product.update(dto);
-
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
         existing.setPrice(dto.getPrice());
         existing.setStock(dto.getStock());
-        
         if (dto.getCategoryIds() != null) {
             Set<CategoryEntity> newCategories = validateAndGetCategories(dto.getCategoryIds());
             existing.clearCategories();
             existing.setCategories(newCategories);
         }
-        
         return mapper.toResponseDto(productRepo.save(existing));
     }
 
@@ -80,12 +85,10 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponseDto partialUpdate(int id, PartialUpdateProductDto dto) {
         ProductEntity existing = productRepo.findById((long) id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
-        
         if(dto.getName() != null) existing.setName(dto.getName());
         if(dto.getDescription() != null) existing.setDescription(dto.getDescription());
         if(dto.getPrice() != null) existing.setPrice(dto.getPrice());
         if(dto.getStock() != null) existing.setStock(dto.getStock());
-        
         return mapper.toResponseDto(productRepo.save(existing));
     }
 
@@ -97,33 +100,6 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<ProductResponseDto> findAll() {
-        return productRepo.findAll().stream().map(mapper::toResponseDto).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public ProductResponseDto findOne(int id) {
-        return productRepo.findById((long) id).map(mapper::toResponseDto)
-                .orElseThrow(() -> new NotFoundException("Producto no encontrado"));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProductResponseDto> findByUserId(Long userId) {
-         if (!userRepo.existsById(userId)) throw new NotFoundException("Usuario no encontrado");
-         return productRepo.findByOwnerId(userId).stream().map(mapper::toResponseDto).collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ProductResponseDto> findByCategoryId(Long categoryId) {
-         if (!categoryRepo.existsById(categoryId)) throw new NotFoundException("Categoría no encontrada");
-         return productRepo.findByCategoriesId(categoryId).stream().map(mapper::toResponseDto).collect(Collectors.toList());
-    }
-
-    @Override
     public boolean validateName(Integer id, String name) {
         productRepo.findByName(name).ifPresent(existing -> {
              if (id == null || existing.getId() != id.longValue()) {
@@ -131,6 +107,41 @@ public class ProductServiceImpl implements ProductService {
             }
         });
         return true;
+    }
+
+    // --- IMPLEMENTACIÓN DE PAGINACIÓN (PRÁCTICA 10) ---
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponseDto> findAll(int page, int size, String sort) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sort).ascending());
+        return productRepo.findAll(pageable).map(mapper::toResponseDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponseDto> findWithFilters(String name, Double minPrice, Double maxPrice, Long categoryId, int page, int size, String sort) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sort).ascending());
+        return productRepo.findWithFilters(name, minPrice, maxPrice, categoryId, pageable)
+                .map(mapper::toResponseDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponseDto> findByUserIdWithFilters(Long userId, String name, Double minPrice, Double maxPrice, Long categoryId, int page, int size, String sort) {
+        if (!userRepo.existsById(userId)) throw new NotFoundException("Usuario no encontrado");
+        
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sort).ascending());
+        return productRepo.findByUserIdWithFilters(userId, name, minPrice, maxPrice, categoryId, pageable)
+                .map(mapper::toResponseDto);
+    }
+
+    // --- OTROS ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> findByCategoryId(Long categoryId) {
+         if (!categoryRepo.existsById(categoryId)) throw new NotFoundException("Categoría no encontrada");
+         return productRepo.findByCategoriesId(categoryId).stream().map(mapper::toResponseDto).collect(Collectors.toList());
     }
 
     private Set<CategoryEntity> validateAndGetCategories(Collection<Long> categoryIds) {

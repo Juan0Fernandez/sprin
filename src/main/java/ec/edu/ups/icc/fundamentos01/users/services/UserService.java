@@ -4,6 +4,7 @@ import ec.edu.ups.icc.fundamentos01.products.dtos.ProductResponseDto;
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import java.util.List;
 
+// UserService.java
 public interface UserService {
     List<UserResponseDto> findAll();
     UserResponseDto findOne(int id);
@@ -12,14 +13,6 @@ public interface UserService {
     UserResponseDto partialUpdate(int id, PartialUpdateUserDto dto);
     void delete(int id);
 
-    List<ProductResponseDto> getProductsByUserId(Long userId);
-
-    List<ProductResponseDto> getProductsByUserIdWithFilters(
-            Long userId, 
-            String name, 
-            Double minPrice, 
-            Double maxPrice, 
-            Long categoryId
-    );
-
-}
+    List<ProductResponseDto> getProductsByUserId(Long id);
+    
+    }
