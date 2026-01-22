@@ -1,11 +1,10 @@
 package ec.edu.ups.icc.fundamentos01.users.controllers;
 
 import ec.edu.ups.icc.fundamentos01.products.dtos.ProductResponseDto;
-import ec.edu.ups.icc.fundamentos01.products.services.ProductService; // <--- IMPORTANTE
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.services.UserService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page; // <--- IMPORTANTE
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -15,13 +14,13 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
-    private final ProductService productService; // <--- AGREGADO
 
-    public UserController(UserService userService, ProductService productService) {
+    // Solo inyectamos UserService, él se encarga de hablar con los repositorios necesarios
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.productService = productService;
     }
 
+    // --- CRUD USUARIOS ---
     @GetMapping
     public ResponseEntity<List<UserResponseDto>> findAll() {
         return ResponseEntity.ok(userService.findAll());
@@ -53,6 +52,8 @@ public class UserController {
         return ResponseEntity.ok(userService.partialUpdate(id, dto));
     }
 
+    // --- ENDPOINTS DE PRODUCTOS DEL USUARIO ---
+
     @GetMapping("/{id}/products")
     public ResponseEntity<List<ProductResponseDto>> getProductsByUserId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(userService.getProductsByUserId(id));
@@ -61,16 +62,17 @@ public class UserController {
     @GetMapping("/{id}/products-v2")
     public ResponseEntity<Page<ProductResponseDto>> getProductsByUserIdWithFilters(
             @PathVariable("id") Long id,
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort
-    ) {
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "minPrice", required = false) Double minPrice,
+            @RequestParam(name = "maxPrice", required = false) Double maxPrice,
+            @RequestParam(name = "categoryId", required = false) Long categoryId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "id") String sort
+        ) {
+        // Llamamos a userService, que ya tiene la lógica paginada lista
         return ResponseEntity.ok(
-            productService.findByUserIdWithFilters(id, name, minPrice, maxPrice, categoryId, page, size, sort)
+            userService.getProductsByUserIdWithFilters(id, name, minPrice, maxPrice, categoryId, page, size, sort)
         );
     }
 }

@@ -6,7 +6,6 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/products")
@@ -17,28 +16,29 @@ public class ProductController {
     public ProductController(ProductService service) {
         this.service = service;
     }
-
+    
     @GetMapping
     public ResponseEntity<Page<ProductResponseDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "id") String sort
     ) {
         return ResponseEntity.ok(service.findAll(page, size, sort));
     }
 
     @GetMapping("/search")
     public ResponseEntity<Page<ProductResponseDto>> search(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "minPrice", required = false) Double minPrice,
+            @RequestParam(name = "maxPrice", required = false) Double maxPrice,
+            @RequestParam(name = "categoryId", required = false) Long categoryId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sort", defaultValue = "id") String sort
     ) {
         return ResponseEntity.ok(service.findWithFilters(name, minPrice, maxPrice, categoryId, page, size, sort));
     }
+
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponseDto> findOne(@PathVariable("id") int id) {
         return ResponseEntity.ok(service.findOne(id));

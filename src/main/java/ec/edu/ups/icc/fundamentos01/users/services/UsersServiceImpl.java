@@ -8,21 +8,24 @@ import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository;
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.models.User;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
-public class UserServiceImpl implements UserService {
+public class UsersServiceImpl implements UserService {
 
     private final UserRepository userRepo;
-    private final ProductRepository productRepo;
+    private final ProductRepository productRepo; 
     private final ProductMapper productMapper;   
 
-    public UserServiceImpl(UserRepository userRepo, ProductRepository productRepo, ProductMapper productMapper) {
+    public UsersServiceImpl(UserRepository userRepo, ProductRepository productRepo, ProductMapper productMapper) {
         this.userRepo = userRepo;
         this.productRepo = productRepo;
         this.productMapper = productMapper;
@@ -31,15 +34,13 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public List<UserResponseDto> findAll() {
-        return userRepo.findAll().stream()
-                .map(User::fromEntity).map(User::toResponseDto).toList();
+        return userRepo.findAll().stream().map(User::fromEntity).map(User::toResponseDto).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public UserResponseDto findOne(int id) {
-        return userRepo.findById((long) id)
-                .map(User::fromEntity).map(User::toResponseDto)
+        return userRepo.findById((long) id).map(User::fromEntity).map(User::toResponseDto)
                 .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
     }
 
@@ -49,9 +50,9 @@ public class UserServiceImpl implements UserService {
         if (userRepo.findByEmail(dto.getEmail()).isPresent()) {
             throw new ConflictException("El email " + dto.getEmail() + " ya está registrado");
         }
-        return Optional.of(dto).map(User::fromDto).map(User::toEntity)
-                .map(userRepo::save).map(User::fromEntity).map(User::toResponseDto)
-                .orElseThrow(() -> new RuntimeException("Error interno al crear el usuario"));
+        return Optional.of(dto).map(User::fromDto).map(User::toEntity).map(userRepo::save)
+                .map(User::fromEntity).map(User::toResponseDto)
+                .orElseThrow(() -> new RuntimeException("Error al crear usuario"));
     }
 
     @Override
@@ -63,7 +64,7 @@ public class UserServiceImpl implements UserService {
             entity.setPassword(dto.getPassword());
             return userRepo.save(entity);
         }).map(User::fromEntity).map(User::toResponseDto)
-          .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
+          .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
     }
 
     @Override
@@ -75,28 +76,52 @@ public class UserServiceImpl implements UserService {
             if (dto.getPassword() != null) entity.setPassword(dto.getPassword());
             return userRepo.save(entity);
         }).map(User::fromEntity).map(User::toResponseDto)
-          .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
+          .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
     }
 
     @Override
     @Transactional
     public void delete(int id) {
-        if (!userRepo.existsById((long) id)) {
-            throw new NotFoundException("No se puede eliminar. Usuario no encontrado con ID: " + id);
-        }
+        if (!userRepo.existsById((long) id)) throw new NotFoundException("Usuario no encontrado");
         userRepo.deleteById((long) id);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsByUserId(Long userId) {
-        if (!userRepo.existsById(userId)) {
-             throw new NotFoundException("Usuario no encontrado con ID: " + userId);
-        }
-        return productRepo.findByOwnerId(userId)
-                .stream()
-                .map(productMapper::toResponseDto)
-                .collect(Collectors.toList());
+        if (!userRepo.existsById(userId)) throw new NotFoundException("Usuario no encontrado");
+        return productRepo.findByOwnerId(userId).stream()
+                .map(productMapper::toResponseDto).toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponseDto> getProductsByUserIdWithFilters(
+            Long userId, String name, Double minPrice, Double maxPrice, Long categoryId, 
+            int page, int size, String sort) {
+        
+        // 1. Validar usuario
+        if (!userRepo.existsById(userId)) {
+            throw new NotFoundException("Usuario no encontrado con ID: " + userId);
+        }
+
+        // 2. Construir Paginación (con arreglo del Sort)
+        Pageable pageable = construirPageable(page, size, sort);
+
+        // 3. Llamar al ProductRepository (NO al UserRepository)
+        return productRepo.findByUserIdWithFilters(userId, name, minPrice, maxPrice, categoryId, pageable)
+                .map(productMapper::toResponseDto);
+    }
+
+    private Pageable construirPageable(int page, int size, String sortStr) {
+        String[] partes = sortStr.split(",");
+        String propiedad = partes[0];
+        Sort sortObj = Sort.by(propiedad);
+        if (partes.length > 1 && "desc".equalsIgnoreCase(partes[1])) {
+            sortObj = sortObj.descending();
+        } else {
+            sortObj = sortObj.ascending();
+        }
+        return PageRequest.of(page, size, sortObj);
+    }
 }

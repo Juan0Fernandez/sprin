@@ -15,13 +15,12 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
 
     Optional<ProductEntity> findByName(String name);
-
-    // Métodos para listas simples (sin paginación - opcionales, pero buenos para tener)
     List<ProductEntity> findByOwnerId(Long userId);
     List<ProductEntity> findByCategoriesId(Long categoryId);
 
+    // CORRECCIÓN: Quitamos LOWER() alrededor de :name
     @Query("SELECT p FROM ProductEntity p " +
-           "WHERE (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+           "WHERE (:name IS NULL OR LOWER(p.name) LIKE :name) " + // <--- MIRA AQUÍ: Solo :name
            "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
            "AND (:maxPrice IS NULL OR p.price <= :maxPrice) " +
            "AND (:categoryId IS NULL OR EXISTS (SELECT c FROM p.categories c WHERE c.id = :categoryId))")
@@ -30,12 +29,13 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice,
             @Param("categoryId") Long categoryId,
-            Pageable pageable // <--- ¡Importante para la paginación!
+            Pageable pageable
     );
 
+    // CORRECCIÓN: Quitamos LOWER() alrededor de :name
     @Query("SELECT p FROM ProductEntity p " +
            "WHERE p.owner.id = :userId " +
-           "AND (:name IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+           "AND (:name IS NULL OR LOWER(p.name) LIKE :name) " + // <--- MIRA AQUÍ: Solo :name
            "AND (:minPrice IS NULL OR p.price >= :minPrice) " +
            "AND (:maxPrice IS NULL OR p.price <= :maxPrice) " +
            "AND (:categoryId IS NULL OR EXISTS (SELECT c FROM p.categories c WHERE c.id = :categoryId))")
@@ -45,6 +45,6 @@ public interface ProductRepository extends JpaRepository<ProductEntity, Long> {
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice,
             @Param("categoryId") Long categoryId,
-            Pageable pageable // <--- ¡Importante para la paginación!
+            Pageable pageable
     );
 }
