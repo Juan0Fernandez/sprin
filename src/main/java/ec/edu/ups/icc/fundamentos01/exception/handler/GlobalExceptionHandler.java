@@ -15,8 +15,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Manejo de tus excepciones personalizadas (NotFound, Conflict)
-    // Se asume que tu ApplicationException tiene un método getStatus() que devuelve HttpStatus
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<ErrorResponse> handleApplicationException(
             ApplicationException ex,     

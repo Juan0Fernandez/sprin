@@ -9,9 +9,11 @@ import ec.edu.ups.icc.fundamentos01.products.entities.ProductEntity;
 import ec.edu.ups.icc.fundamentos01.products.mappers.ProductMapper;
 import ec.edu.ups.icc.fundamentos01.products.models.Product;
 import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository;
+import ec.edu.ups.icc.fundamentos01.products.specifications.ProductSpecification; // <--- CUMPLE PUNTO 7.2
 import ec.edu.ups.icc.fundamentos01.users.entities.UserEntity;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -39,11 +41,17 @@ public class ProductServiceImpl implements ProductService {
         this.mapper = mapper;
     }
 
-    // --- MÉTODOS DE PAGINACIÓN CORREGIDOS ---
-
     @Override
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> findAll(int page, int size, String sort) {
+        Pageable pageable = construirPageable(page, size, sort);
+        return productRepo.findAll(pageable).map(mapper::toResponseDto);
+    }
+
+    // IMPLEMENTACIÓN DE SLICE (Punto 4)
+    @Override
+    @Transactional(readOnly = true)
+    public Slice<ProductResponseDto> findAllSlice(int page, int size, String sort) {
         Pageable pageable = construirPageable(page, size, sort);
         return productRepo.findAll(pageable).map(mapper::toResponseDto);
     }
@@ -53,14 +61,13 @@ public class ProductServiceImpl implements ProductService {
     public Page<ProductResponseDto> findWithFilters(String name, Double minPrice, Double maxPrice, Long categoryId, int page, int size, String sort) {
         Pageable pageable = construirPageable(page, size, sort);
         
-        // CORRECCIÓN: Agregamos % y convertimos a MINÚSCULAS aquí
-        if (name != null && !name.isBlank()) {
-            name = "%" + name.toLowerCase() + "%";
-        } else {
-            name = null;
-        }
+        // 1. Creamos el DTO de filtro (Punto 5.2)
+        ProductFilterDto filtro = new ProductFilterDto(name, minPrice, maxPrice, categoryId);
+        
+        // 2. Usamos la Specification (Punto 7.2)
+        var spec = ProductSpecification.filtrar(filtro, null);
 
-        return productRepo.findWithFilters(name, minPrice, maxPrice, categoryId, pageable).map(mapper::toResponseDto);
+        return productRepo.findAll(spec, pageable).map(mapper::toResponseDto);
     }
 
     @Override
@@ -69,24 +76,23 @@ public class ProductServiceImpl implements ProductService {
         if (!userRepo.existsById(userId)) {
             throw new NotFoundException("Usuario no encontrado con ID: " + userId);
         }
-        
         Pageable pageable = construirPageable(page, size, sort);
 
-        // CORRECCIÓN: Agregamos % y convertimos a MINÚSCULAS aquí
-        if (name != null && !name.isBlank()) {
-            name = "%" + name.toLowerCase() + "%";
-        } else {
-            name = null;
-        }
+        // 1. Creamos el DTO de filtro
+        ProductFilterDto filtro = new ProductFilterDto(name, minPrice, maxPrice, categoryId);
 
-        return productRepo.findByUserIdWithFilters(userId, name, minPrice, maxPrice, categoryId, pageable).map(mapper::toResponseDto);
+        var spec = ProductSpecification.filtrar(filtro, userId);
+
+        // 3. Ejecutamos
+        return productRepo.findAll(spec, pageable).map(mapper::toResponseDto);
     }
 
     private Pageable construirPageable(int page, int size, String sortStr) {
         String[] partes = sortStr.split(",");
         String propiedad = partes[0];
-        Sort sortObj = Sort.by(propiedad);
+        if(propiedad == null || propiedad.isBlank()) propiedad = "id";
         
+        Sort sortObj = Sort.by(propiedad);
         if (partes.length > 1 && "desc".equalsIgnoreCase(partes[1])) {
             sortObj = sortObj.descending();
         } else {
@@ -94,8 +100,6 @@ public class ProductServiceImpl implements ProductService {
         }
         return PageRequest.of(page, size, sortObj);
     }
-
-    // --- MÉTODOS CRUD ESTÁNDAR ---
 
     @Override
     @Transactional

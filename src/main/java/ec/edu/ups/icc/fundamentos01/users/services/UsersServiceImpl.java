@@ -2,9 +2,11 @@ package ec.edu.ups.icc.fundamentos01.users.services;
 
 import ec.edu.ups.icc.fundamentos01.exception.domain.ConflictException;
 import ec.edu.ups.icc.fundamentos01.exception.domain.NotFoundException;
+import ec.edu.ups.icc.fundamentos01.products.dtos.ProductFilterDto; // <--- Importar
 import ec.edu.ups.icc.fundamentos01.products.dtos.ProductResponseDto;
 import ec.edu.ups.icc.fundamentos01.products.mappers.ProductMapper;
 import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository;
+import ec.edu.ups.icc.fundamentos01.products.specifications.ProductSpecification; // <--- Importar
 import ec.edu.ups.icc.fundamentos01.users.dtos.*;
 import ec.edu.ups.icc.fundamentos01.users.models.User;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
@@ -94,6 +96,7 @@ public class UsersServiceImpl implements UserService {
                 .map(productMapper::toResponseDto).toList();
     }
 
+    // --- AQUÍ ESTABA EL ERROR ---
     @Override
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> getProductsByUserIdWithFilters(
@@ -105,17 +108,26 @@ public class UsersServiceImpl implements UserService {
             throw new NotFoundException("Usuario no encontrado con ID: " + userId);
         }
 
-        // 2. Construir Paginación (con arreglo del Sort)
+        // 2. Construir Paginación
         Pageable pageable = construirPageable(page, size, sort);
 
-        // 3. Llamar al ProductRepository (NO al UserRepository)
-        return productRepo.findByUserIdWithFilters(userId, name, minPrice, maxPrice, categoryId, pageable)
-                .map(productMapper::toResponseDto);
+        // 3. Crear DTO de Filtro (Igual que en ProductService)
+        ProductFilterDto filtro = new ProductFilterDto(name, minPrice, maxPrice, categoryId);
+
+        // 4. Usar Specification pasando el userId
+        var spec = ProductSpecification.filtrar(filtro, userId);
+
+        // 5. Llamar a findAll (Método nativo de JpaSpecificationExecutor)
+        return productRepo.findAll(spec, pageable).map(productMapper::toResponseDto);
     }
 
     private Pageable construirPageable(int page, int size, String sortStr) {
         String[] partes = sortStr.split(",");
         String propiedad = partes[0];
+        
+        // Validación extra por si acaso
+        if(propiedad == null || propiedad.isBlank()) propiedad = "id";
+
         Sort sortObj = Sort.by(propiedad);
         if (partes.length > 1 && "desc".equalsIgnoreCase(partes[1])) {
             sortObj = sortObj.descending();
