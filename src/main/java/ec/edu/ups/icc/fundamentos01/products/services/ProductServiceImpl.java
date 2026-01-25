@@ -1,7 +1,7 @@
 package ec.edu.ups.icc.fundamentos01.products.services;
 
-import ec.edu.ups.icc.fundamentos01.categorias.entity.CategoryEntity;
 import ec.edu.ups.icc.fundamentos01.categorias.Repositories.CategoryRepository;
+import ec.edu.ups.icc.fundamentos01.categorias.entity.CategoryEntity;
 import ec.edu.ups.icc.fundamentos01.exception.domain.ConflictException;
 import ec.edu.ups.icc.fundamentos01.exception.domain.NotFoundException;
 import ec.edu.ups.icc.fundamentos01.products.dtos.*;
@@ -9,14 +9,17 @@ import ec.edu.ups.icc.fundamentos01.products.entities.ProductEntity;
 import ec.edu.ups.icc.fundamentos01.products.mappers.ProductMapper;
 import ec.edu.ups.icc.fundamentos01.products.models.Product;
 import ec.edu.ups.icc.fundamentos01.products.repositories.ProductRepository;
-import ec.edu.ups.icc.fundamentos01.products.specifications.ProductSpecification; // <--- CUMPLE PUNTO 7.2
+import ec.edu.ups.icc.fundamentos01.products.specifications.ProductSpecification;
+import ec.edu.ups.icc.fundamentos01.security.services.UserDetailsImpl; 
 import ec.edu.ups.icc.fundamentos01.users.entities.UserEntity;
 import ec.edu.ups.icc.fundamentos01.users.repositories.UserRepository;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException; 
+import org.springframework.security.core.GrantedAuthority; 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +44,30 @@ public class ProductServiceImpl implements ProductService {
         this.mapper = mapper;
     }
 
+
+    private void validateOwnership(ProductEntity product, UserDetailsImpl currentUser) {
+        
+        if (hasAnyRole(currentUser, "ROLE_ADMIN", "ROLE_MODERATOR")) {
+            return; 
+        }
+
+        if (!product.getOwner().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("No puedes modificar/eliminar productos ajenos. Este producto no es tuyo.");
+        }
+    }
+
+    private boolean hasAnyRole(UserDetailsImpl user, String... roles) {
+        for (String role : roles) {
+            for (GrantedAuthority authority : user.getAuthorities()) {
+                if (authority.getAuthority().equals(role)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
     @Override
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> findAll(int page, int size, String sort) {
@@ -48,7 +75,6 @@ public class ProductServiceImpl implements ProductService {
         return productRepo.findAll(pageable).map(mapper::toResponseDto);
     }
 
-    // IMPLEMENTACIÓN DE SLICE (Punto 4)
     @Override
     @Transactional(readOnly = true)
     public Slice<ProductResponseDto> findAllSlice(int page, int size, String sort) {
@@ -60,13 +86,8 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> findWithFilters(String name, Double minPrice, Double maxPrice, Long categoryId, int page, int size, String sort) {
         Pageable pageable = construirPageable(page, size, sort);
-        
-        // 1. Creamos el DTO de filtro (Punto 5.2)
         ProductFilterDto filtro = new ProductFilterDto(name, minPrice, maxPrice, categoryId);
-        
-        // 2. Usamos la Specification (Punto 7.2)
         var spec = ProductSpecification.filtrar(filtro, null);
-
         return productRepo.findAll(spec, pageable).map(mapper::toResponseDto);
     }
 
@@ -77,13 +98,8 @@ public class ProductServiceImpl implements ProductService {
             throw new NotFoundException("Usuario no encontrado con ID: " + userId);
         }
         Pageable pageable = construirPageable(page, size, sort);
-
-        // 1. Creamos el DTO de filtro
         ProductFilterDto filtro = new ProductFilterDto(name, minPrice, maxPrice, categoryId);
-
         var spec = ProductSpecification.filtrar(filtro, userId);
-
-        // 3. Ejecutamos
         return productRepo.findAll(spec, pageable).map(mapper::toResponseDto);
     }
 
@@ -126,9 +142,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponseDto update(int id, UpdateProductDto dto) {
+    public ProductResponseDto update(int id, UpdateProductDto dto, UserDetailsImpl currentUser) {
         ProductEntity existing = productRepo.findById((long) id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
+        
+        validateOwnership(existing, currentUser);
+
         Product product = Product.fromEntity(existing);
         product.update(dto);
         existing.setName(dto.getName());
@@ -148,6 +167,7 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponseDto partialUpdate(int id, PartialUpdateProductDto dto) {
         ProductEntity existing = productRepo.findById((long) id)
                 .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
+        
         if(dto.getName() != null) existing.setName(dto.getName());
         if(dto.getDescription() != null) existing.setDescription(dto.getDescription());
         if(dto.getPrice() != null) existing.setPrice(dto.getPrice());
@@ -157,11 +177,13 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public void delete(int id) {
-        if (!productRepo.existsById((long) id)) {
-            throw new NotFoundException("Producto no encontrado con ID: " + id);
-        }
-        productRepo.deleteById((long) id);
+    public void delete(int id, UserDetailsImpl currentUser) {
+        ProductEntity product = productRepo.findById((long) id)
+            .orElseThrow(() -> new NotFoundException("Producto no encontrado con ID: " + id));
+        
+        validateOwnership(product, currentUser);
+
+        productRepo.delete(product);
     }
 
     @Override
@@ -195,5 +217,12 @@ public class ProductServiceImpl implements ProductService {
             }
         }
         return categories;
+    }
+
+    @Override
+    public List<ProductResponseDto> findAll() {
+        return productRepo.findAll().stream()
+                .map(mapper::toResponseDto)
+                .toList();
     }
 }

@@ -1,9 +1,13 @@
 package ec.edu.ups.icc.fundamentos01.users.entities;
 
 import ec.edu.ups.icc.fundamentos01.core.entities.BaseModel;
-import ec.edu.ups.icc.fundamentos01.products.entities.ProductEntity; // <--- Importar Producto
+import ec.edu.ups.icc.fundamentos01.products.entities.ProductEntity;
+import ec.edu.ups.icc.fundamentos01.security.models.RoleEntity;
+import ec.edu.ups.icc.fundamentos01.security.models.RoleName;
 import jakarta.persistence.*;
+import java.util.HashSet; 
 import java.util.List;
+import java.util.Set; 
 
 @Entity
 @Table(name = "users")
@@ -18,12 +22,24 @@ public class UserEntity extends BaseModel {
     @Column(nullable = false)
     private String password;
 
-    // --- NUEVA RELACIÓN (Uno a Muchos) ---
-    // mappedBy = "owner" debe coincidir con el nombre del atributo en ProductEntity
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<RoleEntity> roles = new HashSet<>();
+
     @OneToMany(mappedBy = "owner", fetch = FetchType.LAZY)
     private List<ProductEntity> products;
 
     public UserEntity() {} 
+
+    public UserEntity(String name, String email, String password) {
+        this.name = name;
+        this.email = email;
+        this.password = password;
+    }
 
     // Getters y Setters
     public String getName() { return name; }
@@ -35,6 +51,19 @@ public class UserEntity extends BaseModel {
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
 
+    public Set<RoleEntity> getRoles() { return roles; }
+    public void setRoles(Set<RoleEntity> roles) { this.roles = roles; }
+
     public List<ProductEntity> getProducts() { return products; }
     public void setProducts(List<ProductEntity> products) { this.products = products; }
+
+    public void addRole(RoleEntity role) {
+        this.roles.add(role);
+        role.getUsers().add(this);
+    }
+
+    public boolean hasRole(RoleName roleName) {
+        return this.roles.stream()
+                .anyMatch(role -> role.getName().equals(roleName));
+    }
 }
