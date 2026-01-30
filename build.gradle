@@ -44,6 +44,10 @@ dependencies {
 
     // Manejo de Fechas (Jackson)
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    //Servidor de Documentación API (Swagger)
+    //implementation 'org .springframework.boot:spring-boot-starter-web'
+
 }
 
 tasks.named('test') {
