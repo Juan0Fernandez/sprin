@@ -2,9 +2,13 @@ package ec.edu.ups.icc.fundamentos01.products.controllers;
 
 import ec.edu.ups.icc.fundamentos01.products.dtos.*;
 import ec.edu.ups.icc.fundamentos01.products.services.ProductService;
+import ec.edu.ups.icc.fundamentos01.security.services.UserDetailsImpl; 
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal; 
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -19,26 +23,43 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<ProductResponseDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort
-    ) {
-        return ResponseEntity.ok(service.findAll(page, size, sort));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ProductResponseDto>> findAll() {
+        return ResponseEntity.ok(service.findAll());
+    }
+
+    @GetMapping("/paginated")
+    public ResponseEntity<Page<ProductResponseDto>> findAllPaginado(@Valid @ModelAttribute PageableDto pageable) {
+        return ResponseEntity.ok(service.findAll(pageable.getPage(), pageable.getSize(), pageable.getSort()));
+    }
+
+    @GetMapping("/slice")
+    public ResponseEntity<Slice<ProductResponseDto>> findAllSlice(@Valid @ModelAttribute PageableDto pageable) {
+        return ResponseEntity.ok(service.findAllSlice(pageable.getPage(), pageable.getSize(), pageable.getSort()));
     }
 
     @GetMapping("/search")
     public ResponseEntity<Page<ProductResponseDto>> search(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sort
+            @ModelAttribute ProductFilterDto filter,
+            @Valid @ModelAttribute PageableDto pageable
     ) {
-        return ResponseEntity.ok(service.findWithFilters(name, minPrice, maxPrice, categoryId, page, size, sort));
+        return ResponseEntity.ok(service.findWithFilters(
+                filter.getName(), filter.getMinPrice(), filter.getMaxPrice(), filter.getCategoryId(),
+                pageable.getPage(), pageable.getSize(), pageable.getSort()
+        ));
     }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<Page<ProductResponseDto>> findByUser(
+            @PathVariable Long userId,
+            @Valid @ModelAttribute PageableDto pageable
+    ) {
+        return ResponseEntity.ok(service.findByUserIdWithFilters(
+                userId, null, null, null, null,
+                pageable.getPage(), pageable.getSize(), pageable.getSort()
+        ));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ProductResponseDto> findOne(@PathVariable("id") int id) {
         return ResponseEntity.ok(service.findOne(id));
@@ -50,18 +71,18 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductResponseDto> update(@PathVariable("id") int id, @Valid @RequestBody UpdateProductDto dto) {
-        return ResponseEntity.ok(service.update(id, dto));
-    }
-
-    @PatchMapping("/{id}")
-    public ResponseEntity<ProductResponseDto> partialUpdate(@PathVariable("id") int id, @RequestBody PartialUpdateProductDto dto) {
-        return ResponseEntity.ok(service.partialUpdate(id, dto));
+    public ResponseEntity<ProductResponseDto> update(
+            @PathVariable("id") int id, 
+            @Valid @RequestBody UpdateProductDto dto,
+            @AuthenticationPrincipal UserDetailsImpl currentUser) { 
+        return ResponseEntity.ok(service.update(id, dto, currentUser));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable("id") int id) {
-        service.delete(id);
+    public ResponseEntity<Void> delete(
+            @PathVariable("id") int id,
+            @AuthenticationPrincipal UserDetailsImpl currentUser) { 
+        service.delete(id, currentUser);
         return ResponseEntity.noContent().build();
     }
 }
